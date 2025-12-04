@@ -5,6 +5,7 @@ import com.sporty.eventstream.model.entity.EventTaskStatus;
 import com.sporty.eventstream.repository.EventTaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +20,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EventTaskPersistenceService {
 
-    private static final Duration EXECUTION_INTERVAL = Duration.ofSeconds(10);
-
     private final EventTaskRepository repository;
+
+    @Value("${events.task-execution-interval-seconds:10}")
+    private int executionIntervalSeconds;
 
 
     @Transactional
@@ -123,7 +125,7 @@ public class EventTaskPersistenceService {
         task.setExecutionCount(task.getExecutionCount() + 1);
         task.setLastError(null);
         task.setLastErrorTime(null);
-        task.setNextExecutionTime(executionTime.plus(EXECUTION_INTERVAL));
+        task.setNextExecutionTime(executionTime.plus(Duration.ofSeconds(executionIntervalSeconds)));
         task.setUpdatedAt(Instant.now());
 
         repository.save(task);
@@ -141,7 +143,7 @@ public class EventTaskPersistenceService {
         task.setExecutionCount(task.getExecutionCount() + 1);
         task.setLastError(errorMessage);
         task.setLastErrorTime(executionTime);
-        task.setNextExecutionTime(executionTime.plus(EXECUTION_INTERVAL));
+        task.setNextExecutionTime(executionTime.plus(Duration.ofSeconds(executionIntervalSeconds)));
         task.setUpdatedAt(Instant.now());
 
         repository.save(task);

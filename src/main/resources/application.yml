@@ -30,12 +30,15 @@ spring:
       retries: 0
 
 events:
-  task-processor-interval-ms: 1000
+  task-processor-interval-min-ms: 100
+  task-processor-interval-max-ms: 5000
   task-processor-batch-size: 100
   task-in-progress-timeout-seconds: 30
+  task-execution-interval-seconds: 10
   kafka:
     topic: live-events-scores
     max-retries: 3
+    retry-backoff-ms: 200
 
 external:
   api:

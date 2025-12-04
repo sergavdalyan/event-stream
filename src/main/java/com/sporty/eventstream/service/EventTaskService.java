@@ -1,11 +1,10 @@
 package com.sporty.eventstream.service;
 
-import com.sporty.eventstream.client.ExternalServiceEventScoreClient;
-import com.sporty.eventstream.messaging.KafkaEventMessagePublisher;
-import com.sporty.eventstream.model.kafka.EventScoreMessage;
+import com.sporty.eventstream.model.event.TaskProcessingEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -16,11 +15,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EventTaskService {
 
-    private static final int MAX_ERROR_MESSAGE_LENGTH = 1000;
-
     private final EventTaskPersistenceService persistence;
-    private final ExternalServiceEventScoreClient serviceEventClient;
-    private final KafkaEventMessagePublisher eventScorePublisher;
+    private final ApplicationEventPublisher eventPublisher;
+
 
     @Value("${events.task-processor-batch-size:100}")
     private int batchSize;
@@ -33,13 +30,11 @@ public class EventTaskService {
     }
 
     /**
-     * Called from scheduler
      * - Releases stuck IN_PROGRESS tasks
-     * - Claims a batch of ACTIVE tasks as IN_PROGRESS
-     * - Processes each task
-     * - Marks success/error in small transactional calls
+     * - Get all  ACTIVE tasks as IN_PROGRESS and publish event
+     * @return number of tasks processed
      */
-    public void processDueTasks() {
+    public int processDueTasks() {
         Instant now = Instant.now();
 
         // Release IN_PROGRESS tasks
@@ -53,49 +48,28 @@ public class EventTaskService {
         List<Long> taskIds = persistence.claimTasksForProcessing(now, batchSize);
         if (taskIds.isEmpty()) {
             log.debug("No tasks due for execution at {}", now);
-            return;
+            return 0;
         }
 
-        log.info("Processing {} tasks", taskIds.size());
+        log.info("Claimed {} tasks, publishing async events for processing", taskIds.size());
 
         for (Long taskId : taskIds) {
-            processSingleTask(taskId, now);
+            String eventId;
+            try {
+                eventId = persistence.getEventIdByTaskId(taskId);
+
+                // Publish event - listener will process asynchronously
+                TaskProcessingEvent event = new TaskProcessingEvent(taskId, eventId, now);
+                eventPublisher.publishEvent(event);
+
+                log.debug("Published async event for task {} (event {})", taskId, eventId);
+            } catch (Exception e) {
+                log.error("Failed to publish event for task {}: {}", taskId, e.getMessage(), e);
+                // Mark as error so it can be retried
+                persistence.markTaskError(taskId, now, "Failed to publish event: " + e.getMessage());
+            }
         }
-    }
 
-    private void processSingleTask(Long taskId, Instant now) {
-        String eventId;
-        try {
-            eventId = persistence.getEventIdByTaskId(taskId);
-        } catch (Exception e) {
-            log.error("Failed to fetch task {}: {}", taskId, e.getMessage(), e);
-            return;
-        }
-
-        try {
-            // External REST call
-            String score = serviceEventClient.fetchScore(eventId);
-
-            // Send to Kafka
-            eventScorePublisher.publish(new EventScoreMessage(eventId, score, Instant.now()));
-
-            // Mark success
-            persistence.markTaskSuccess(taskId, now);
-            log.info("Successfully processed task for event {}", eventId);
-
-        } catch (Exception ex) {
-            String message = truncateErrorMessage(ex.getMessage());
-            persistence.markTaskError(taskId, now, message);
-            log.error("Error processing task for event {}: {}", eventId, message, ex);
-        }
-    }
-
-    private String truncateErrorMessage(String message) {
-        if (message == null) {
-            return null;
-        }
-        return message.length() <= MAX_ERROR_MESSAGE_LENGTH
-                ? message
-                : message.substring(0, MAX_ERROR_MESSAGE_LENGTH);
+        return taskIds.size();
     }
 }

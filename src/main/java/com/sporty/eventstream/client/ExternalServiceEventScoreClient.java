@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.ResponseEntity;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -30,8 +32,16 @@ public class ExternalServiceEventScoreClient {
                 .build();
     }
 
+    @Retryable(
+            retryFor = {RestClientException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100,
+                    multiplier = 2.0,
+                    maxDelay = 1000)
+    )
     public String fetchScore(String eventId) {
         String url = baseUrl + "/events/" + eventId;
+        log.debug("Attempting to fetch score for event {} from {}", eventId, url);
 
         try {
             ResponseEntity<EventScoreResponse> responseEntity =
@@ -49,6 +59,7 @@ public class ExternalServiceEventScoreClient {
                 throw new IllegalStateException("Invalid response body from external API for event " + eventId);
             }
 
+            log.debug("Successfully fetched score for event {}: {}", eventId, body.currentScore());
             return body.currentScore();
         } catch (RestClientResponseException e) {
             log.error("External API error for event {}: status={}, body={}",
