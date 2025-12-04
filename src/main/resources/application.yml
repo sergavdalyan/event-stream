@@ -45,3 +45,22 @@ external:
     base-url: http://localhost:8088/mock-api
     connect-timeout-ms: 1000
     read-timeout-ms: 2000
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    disable-swagger-default-url: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
