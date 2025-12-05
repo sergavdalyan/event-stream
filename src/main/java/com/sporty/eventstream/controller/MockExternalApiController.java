@@ -12,8 +12,6 @@ import java.util.Random;
 
 /**
  * Simple mock external API endpoint returning a JSON payload for an event.
- * <p>
- * This makes the prototype fully executable without running a separate service.
  */
 @Slf4j
 @RestController

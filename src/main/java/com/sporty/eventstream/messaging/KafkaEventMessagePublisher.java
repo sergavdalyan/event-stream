@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Synchronous Kafka publisher with retry logic and timeout protection.
+ * Kafka publisher
  */
 @Slf4j
 @Component

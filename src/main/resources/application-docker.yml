@@ -1,0 +1,66 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: event-stream
+  datasource:
+    url: jdbc:h2:mem:eventdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  kafka:
+    bootstrap-servers: kafka:29092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+
+events:
+  task-processor-interval-min-ms: 100
+  task-processor-interval-max-ms: 5000
+  task-processor-batch-size: 100
+  task-in-progress-timeout-seconds: 30
+  task-execution-interval-seconds: 10
+  kafka:
+    topic: live-events-scores
+    max-retries: 3
+    retry-backoff-ms: 200
+
+external:
+  api:
+    base-url: http://localhost:8088/mock-api
+    connect-timeout-ms: 1000
+    read-timeout-ms: 2000
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    disable-swagger-default-url: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+

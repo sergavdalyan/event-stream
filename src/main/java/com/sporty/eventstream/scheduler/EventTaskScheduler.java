@@ -41,14 +41,6 @@ public class EventTaskScheduler {
 
     @PostConstruct
     public void start() {
-        long executionIntervalMs = executionIntervalSeconds * 1000L;
-        
-        if (maxIntervalMs >= executionIntervalMs) {
-            log.warn("Max scheduler interval ({}ms) >= task execution interval ({}ms). " +
-                    "This may cause delayed Kafka publishes. Consider reducing max interval to {}ms or less.",
-                    maxIntervalMs, executionIntervalMs, executionIntervalMs / 2);
-        }
-        
         log.info("Starting adaptive scheduler: polling interval {}-{}ms, task execution every {}s",
                 minIntervalMs, maxIntervalMs, executionIntervalSeconds);
         scheduleNext();
